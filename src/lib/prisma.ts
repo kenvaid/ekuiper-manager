@@ -27,8 +27,18 @@ const globalForPrisma = globalThis as unknown as {
 async function createPrismaClient(): Promise<PrismaClientLike | null> {
     try {
         // Dynamic import to handle cases where module isn't generated
-        const { PrismaClient } = await import('@prisma/client');
-        return new PrismaClient();
+        // Cast to any/unknown so TS won't complain about missing properties.
+        const imported: any = await import('@prisma/client');
+        const PrismaClientCtor =
+            // ESM build exports { PrismaClient }, CJS build may be default export.
+            imported.PrismaClient ?? imported.default;
+
+        if (typeof PrismaClientCtor !== 'function') {
+            // defensive: should never happen when prisma is generated correctly
+            throw new Error('PrismaClient constructor not found in @prisma/client import');
+        }
+
+        return new PrismaClientCtor();
     } catch (e) {
         // This is expected during build if prisma generate hasn't been run
         if (process.env.NODE_ENV !== 'production') {
