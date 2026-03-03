@@ -35,6 +35,7 @@ interface RuleDetails {
 }
 
 const SINK_TYPES = [
+  { value: "edgex", label: "EdgeX", fields: ["type", "protocol", "host", "port", "connectionSelector", "topic", "topicPrefix", "contentType", "messageType", "metadata", "profileName", "deviceName", "sourceName"] },
   { value: "mqtt", label: "MQTT", fields: ["connectionSelector", "server", "topic", "username", "password", "clientid", "qos", "retained", "insecureSkipVerify", "certificationPath", "privateKeyPath"] },
   { value: "log", label: "Log", fields: [] },
   { value: "rest", label: "REST/HTTP", fields: ["url", "method", "headers", "bodyType", "timeout", "insecureSkipVerify"] },
@@ -68,6 +69,29 @@ const PasswordInput = ({ value, onChange, placeholder }: { value: string, onChan
     </div>
   );
 };
+
+function convertConfigValue(key: string, value: string): unknown {
+  if (key === "port" || key === "qos") {
+    const n = parseInt(value, 10);
+    return isNaN(n) ? value : n;
+  }
+  if (key === "retained" || key === "insecureSkipVerify" || key === "raw" ||
+    key === "db" || key === "checkConnection" || key === "log") {
+    // Switch component stores boolean as "true"/"false".
+    return value === "true";
+  }
+  return value;
+}
+
+function transformConfig(
+  config: Record<string, string>
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(config)) {
+    out[k] = convertConfigValue(k, v);
+  }
+  return out;
+}
 
 export default function EditRulePage() {
   const router = useRouter();
@@ -230,7 +254,7 @@ export default function EditRulePage() {
         if (action.type === "log" || action.type === "nop") {
           return { [action.type]: {} };
         }
-        return { [action.type]: action.config };
+        return { [action.type]: transformConfig(action.config) };
       }),
     };
 
