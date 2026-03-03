@@ -22,6 +22,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { type ColumnDef } from "@tanstack/react-table";
 import {
   Plus,
@@ -47,6 +57,7 @@ import {
   Filter,
   LayoutGrid,
   List,
+  Copy,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -74,6 +85,11 @@ export default function RulesPage() {
   const [deleteRule, setDeleteRule] = React.useState<string | null>(null);
   const [activeTag, setActiveTag] = React.useState<string | null>(null);
   const [viewMode, setViewMode] = React.useState<'list' | 'grid'>('grid');
+
+  // duplicate rule dialog state
+  const [duplicateRuleId, setDuplicateRuleId] = React.useState<string | null>(null);
+  const [newRuleId, setNewRuleId] = React.useState<string>("");
+  const [isDuplicateDialogOpen, setIsDuplicateDialogOpen] = React.useState(false);
 
   const fetchRules = React.useCallback(async () => {
     if (!activeServer) {
@@ -193,6 +209,27 @@ export default function RulesPage() {
     if (s.includes("stopped") || s.includes("stop")) return "stopped";
     if (s.includes("error") || s.includes("fail")) return "error";
     return "info";
+  };
+
+  const openDuplicateDialog = (ruleId: string) => {
+    setDuplicateRuleId(ruleId);
+    setNewRuleId(`${ruleId}_dup`);
+    setIsDuplicateDialogOpen(true);
+  };
+
+  const handleConfirmDuplicate = async () => {
+    if (!duplicateRuleId || !activeServer) return;
+    try {
+      ekuiperClient.setBaseUrl(activeServer.url);
+      const existing = await ekuiperClient.getRule(duplicateRuleId);
+      const copy = { ...existing, id: newRuleId };
+      await ekuiperClient.createRule(copy);
+      toast.success(`Rule "${newRuleId}" created by duplicating "${duplicateRuleId}"`);
+      setIsDuplicateDialogOpen(false);
+      fetchRules();
+    } catch (err) {
+      toast.error(`Failed to duplicate rule: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
   };
 
   const getPipelineInfo = (rule: Rule) => {
@@ -339,6 +376,9 @@ export default function RulesPage() {
               <DropdownMenuItem onClick={() => handleRuleAction(rule.id, "restart")}>
                 <RotateCcw className="mr-2 h-4 w-4" /> Restart
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openDuplicateDialog(rule.id)}>
+                <Copy className="mr-2 h-4 w-4" /> Duplicate Rule
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem className="text-destructive" onClick={() => setDeleteRule(rule.id)}>
                 <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -473,6 +513,7 @@ export default function RulesPage() {
                         <DropdownMenuItem onClick={() => router.push(`/rules/${rule.id}`)}>Edit Rule</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => router.push(`/rules/${rule.id}/status`)}>View Metrics</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => router.push(`/rules/${rule.id}/topology`)}>View Topology</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openDuplicateDialog(rule.id)}>Duplicate Rule</DropdownMenuItem>
                         <DropdownMenuItem className="text-destructive" onClick={() => setDeleteRule(rule.id)}>Delete</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -533,6 +574,39 @@ export default function RulesPage() {
           </div>
         )}
       </div>
+
+      {/* Duplicate Rule Dialog */}
+      <Dialog open={isDuplicateDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setDuplicateRuleId(null);
+          setNewRuleId("");
+        }
+        setIsDuplicateDialogOpen(open);
+      }}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Duplicate Rule</DialogTitle>
+            <DialogDescription>
+              Enter a new ID for the duplicated rule.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-4">
+            <Label>Rule ID</Label>
+            <Input
+              value={newRuleId}
+              onChange={(e) => setNewRuleId(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDuplicateDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmDuplicate} disabled={!newRuleId.trim()}>
+              OK
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation */}
       <ConfirmDialog
