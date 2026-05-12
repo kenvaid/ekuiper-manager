@@ -76,7 +76,7 @@ function convertConfigValue(key: string, value: string): unknown {
     return isNaN(n) ? value : n;
   }
   if (key === "retained" || key === "insecureSkipVerify" || key === "raw" ||
-    key === "db" || key === "checkConnection" || key === "log") {
+    key === "db" || key === "checkConnection" || key === "log" || key === "sendSingle") {
     // Switch component stores boolean as "true"/"false".
     return value === "true";
   }
