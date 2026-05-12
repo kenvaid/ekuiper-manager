@@ -37,6 +37,7 @@ interface RuleDetails {
 const SINK_TYPES = [
   { value: "edgex", label: "EdgeX", fields: ["type", "protocol", "host", "port", "connectionSelector", "topic", "topicPrefix", "contentType", "messageType", "metadata", "profileName", "deviceName", "sourceName"] },
   { value: "mqtt", label: "MQTT", fields: ["connectionSelector", "server", "topic", "username", "password", "clientid", "qos", "retained", "insecureSkipVerify", "certificationPath", "privateKeyPath"] },
+  { value: "sql", label: "SQLSink", fields: ["dburl", "table", "fields", "sendSingle"] },
   { value: "log", label: "Log", fields: [] },
   { value: "rest", label: "REST/HTTP", fields: ["url", "method", "headers", "bodyType", "timeout", "insecureSkipVerify"] },
   { value: "memory", label: "Memory", fields: ["topic", "keyField"] },
@@ -71,6 +72,12 @@ const PasswordInput = ({ value, onChange, placeholder }: { value: string, onChan
 };
 
 function convertConfigValue(key: string, value: string): unknown {
+  if (key === "fields") {
+    return value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
   if (key === "port" || key === "qos") {
     const n = parseInt(value, 10);
     return isNaN(n) ? value : n;
@@ -126,6 +133,8 @@ export default function EditRulePage() {
         Object.entries(configObj).forEach(([key, value]) => {
           if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
             config[key] = String(value);
+          } else if (Array.isArray(value)) {
+            config[key] = value.map(String).join(", ");
           }
         });
       }
@@ -537,7 +546,7 @@ export default function EditRulePage() {
                           }
 
                           const isPassword = field.toLowerCase().includes("password") || field.toLowerCase().includes("token") || field.toLowerCase().includes("key");
-                          const isBoolean = field === "retained" || field === "insecureSkipVerify" || field === "hasHeader" || field === "sendMetaToSink";
+                          const isBoolean = field === "retained" || field === "insecureSkipVerify" || field === "hasHeader" || field === "sendMetaToSink" || field === "sendSingle";
                           const isSelect = field === "method" || field === "qos" || field === "precision";
 
                           if (field === "connectionSelector") {
